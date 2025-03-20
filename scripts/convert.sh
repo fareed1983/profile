@@ -1,6 +1,5 @@
 #!/bin/bash
 
-cd ..
 mkdir -p output
 
 for md_file in $(find site -name "*.md"); do
