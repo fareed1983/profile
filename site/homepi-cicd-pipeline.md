@@ -2,6 +2,6 @@
 
 ## HomePi Project
 
-This project...
+This project is now Live! The instructions are coming soon...
 
 ![HomePi](./images/home-pi.webp)
