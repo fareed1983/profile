@@ -6,6 +6,8 @@ Then I forgot that I am a coder and lived my teenage years exploring the world u
 
 I was made a manager and soon found myself not sufficiently hands-on as to satisfy my technical curiosity. There were some experements I conducted recently and continue to perform to fill some gaps in my knowledge and this will be the place where some of these excursions will be documented. I hope this humble website inspires and illuminates the visitor.
 
+[<img src="images/linkedin-logo.svg" alt="drawing" width="25" />](https://www.linkedin.com/in/fareedr/)
+
 ---
 
 ## 🚀 Some Articles to Kick Off This Website
