@@ -38,6 +38,8 @@
 
 [3.2. Introduction to GitHub Actions](#3.2.-introduction-to-github-actions)
 
+[3.3. Execute the Ansible Playbook from GitHub Actions](#3.3.-execute-the-ansible-playbook-from-github-actions)
+
 ## 1\. Introduction {#1.-introduction}
 
 This project is a step-by-step tutorial that introduces basic concepts of modern CI/CD pipelines by creating a useful end-to-end system that is secure and deploys to a lightweight server being a Raspberry Pi 5 available through a public IP.
@@ -159,10 +161,10 @@ You can enable SSH with password login when installing Raspbian or later with:
 Create an SSH key pair on your local machine (not the Pi) using  
 `ssh-keygen -t ed25519 -C “your_email_addr@domain.com”`
 
-You will find the public and private key pair file at \~/.ssh/id_ed25519. There will be two files:
+You will find the public and private key pair file at ~/.ssh/id_ed25519. There will be two files:
 
-* Public key: \~/.ssh/id_ed25519.pub  
-* Private key: \~/.ssh/id_ed25519
+* Public key: ~/.ssh/id_ed25519.pub  
+* Private key: ~/.ssh/id_ed25519
 
 Copy the public key to the Raspberry Pi using ssh as below:  
 `ssh-copy-id -i ~/.ssh/id_ed25519.pub username@<raspberry-pi-ip>`
@@ -374,11 +376,89 @@ This should execute the changes on your Raspberry Pi. You can manually undo chan
 
 [GitHub Actions](https://docs.github.com/en/actions/about-github-actions/understanding-github-actions) allows custom CI/CD workflows to be executed on ‘runners’ when events occur on a code repository. The runner is a (Ubuntu, Windows or MacOS) [container image](https://github.com/actions/runner-images) that executes the GitHub workflow job. GitHub is very ‘generous’ and provides free compute resources as [GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners). Come to think of it, if it was not free, I would not use it and you would not be reading this. 2,000 minutes of free runner minutes are provided as part of the free plan and this should suffice for the needs of a learner. If you want more, you can buy paid plans or host runners privately if you prefer. 
 
-GitHub Actions workflows are described in YAML files that describe sequences of steps or actions that can be manually running commands or from a [marketplace of actions](https://github.com/marketplace) which can be used as tools to improve your workflows. Some actions are published by GitHub themselves while others are vendor or community projects. Some popular actions are those that allow workflows to clone a repository into the runner, build and push docker containers, setup Terraform amongst a host of others. 
+[GitHub Actions](https://docs.github.com/en/actions/about-github-actions/understanding-github-actions) allows custom CI/CD workflows to be executed on ‘runners’ when events occur on a code repository. The runner is a (Ubuntu, Windows or MacOS) [container image](https://github.com/actions/runner-images) that executes the GitHub workflow job. GitHub is very ‘generous’ and provides free compute resources as [GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners). Come to think of it, if it was not free, I would not use it and you would not be reading this. 2,000 minutes of free runner minutes are provided as part of the free plan and this should suffice for the needs of a learner. If you want more, you can buy paid plans or host runners privately if you prefer. 
 
 GitHub Actions also offers such features as secure secret management that we will use to store credentials and other variables to be injected at runtime for use in our workflows.  
-The private key should be accessible by the pipeline. For this, we create a secret in GitHub Actions. In your repo, go to Settings-\>Security-\>Actions-\>New repository secret and create a secret called SSH_PRIVATE_KEY. Copy the text contents of \~/.ssh/\<private-key-file\> as the value. Also create a secret with your Pi’s IP or domain name called PI_HOST.
+The private key should be accessible by the pipeline. For this, we create a secret in GitHub Actions. In your repo, go to Settings-\>Security-\>Actions-\>New repository secret and create a secret called SSH_PRIVATE_KEY. Copy the text contents of ~/.ssh/\<private-key-file\> as the value. Also create a secret with your Pi’s IP or domain name called PI_HOST.
 
+### 3.3. Execute the Ansible Playbook from GitHub Actions {#3.3.-execute-the-ansible-playbook-from-github-actions}
+
+Create a repo on Github for the CI/CD IaC pipeline. Commit the Ansible playbook there in the following directory structure:
+```
+ ├── README.md
+ └── ansible
+     ├── inventory.yml
+     └── playbooks
+         └── setup_pi.yml
+```
+
+We will listen to the commit event on the prod folder on the base infra repository which will trigger a workflow to run the Ansible playbook inside a GitHub Actions runner. To start, 
+
+Then we will add environment variables that will be injected when the runner is executing the pipeline. In the GitHub repository web interface, click the settings icon and then expand “Secrets and variables” and enter “Actions”. We will add 1 variable and 3 secrets currently.
+
+1. Select the variable tab and add “PI_HOST” with your domain name as the value. In my case it was fareed.digital that resolves to the IP of my Pi.  
+2. Select the secrets tab and add the following:  
+   1. “PI_USER” - The username that is a sudoer in your Pi.  
+   2. “PI_SSH_PORT” - The port where SSH is enabled on your Pi (default is 22).  
+   3. “SSH_PRIVATE_KEY” - Copy the contents of the private key from ~/.ssh/id_ed25519 that you generated earlier as the value to this variable.
+
+Let’s create a github workflow to run this Ansible playbook. Create a file .github/workflows/ci-cd.yml. Add the following:
+
+
+```
+name: CI/CD for Raspberry Pi
+
+on:  
+  push:  
+    branches: \[ "main" \]
+
+jobs:  
+  build-deploy:  
+    runs-on: ubuntu-latest  
+    env:  
+      PI_HOST: ${{ vars.PI_HOST }}  
+      PI_USER: ${{ secrets.PI_USER }}  
+      PI_SSH_PORT: ${{ secrets.PI_SSH_PORT }}
+
+    steps:  
+      - name: Check out repo  
+        uses: actions/checkout@v4  
+          
+      - name: Setup SSH  
+        uses: webfactory/ssh-agent@v0.9.0  
+        with:  
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}  
+    
+      - name: Add Pi host key to known_hosts  
+        run: |  
+          mkdir -p ~/.ssh  
+          ssh-keyscan -p $PI_SSH_PORT $PI_HOST  \>\> ~/.ssh/known_hosts  
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Install Ansible  
+        run: |  
+          sudo apt-get update  
+          sudo apt-get install ansible -y
+
+      - name: Run Ansible Playbook  
+        run: |  
+          ansible-playbook \\  
+            -i ansible/inventory.yml \\  
+            ansible/playbooks/setup_pi.yml
+```
+
+Explanation of the pipeline is as follows:
+
+1. We create a pipeline for Github actions instructing it to trigger the job “build-deploy” on push to the main branch.   
+2. We reference the envs from the GitHub Actions secrets and the variable that we added above to inject them into the runner as environment variables.  
+3. The first ‘action’ it uses is actions/checkout@v4. The checkout action checks out the code from the repository into the workflow’s runner.   
+4. We then add the SSH private key to the agent so that Ansible can connect to the Pi using key-based authentication. We also add the Pi’s SSH fingerprint to the known hosts to avoid asking for host authenticity confirmation because we cannot type ‘yes’ like we do on our local machine.  
+5. The GitHub runner is barebone each time it is executed so we have to install Ansible using apt.  
+6. Finally, we run the Ansible Playbook with the same command that we use locally.
+
+Commit this to your repo to the default (main) branch and this should trigger the build-deploy job. You can also ssh into the Raspberry Pi before the job executes and run commands like `sudo ufw reset` to verify that the pipeline worked. You can validate the successful execution with `sudo ufw status numbered` on the Pi.
+
+To watch your workflow runs, click on the Actions tab in your repository and it should show a job ran for your last commit because of the presence of the file .github/workflows/ci-cd.yml. You can click the job and explore the run in depth.
 
 
 # [< Back to Fareed R](./index.md)
