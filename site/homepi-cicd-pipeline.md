@@ -40,6 +40,20 @@
 
 [3.3. Execute the Ansible Playbook from GitHub Actions](#3.3.-execute-the-ansible-playbook-from-github-actions)
 
+[**4\. Profile Web Application**](#4.-profile-web-application)
+
+[4.1. (Minimalist) Web Application Architecture](#4.1.-\(minimalist\)-web-application-architecture)
+
+[4.2. Markdown and Conversion](#4.2.-markdown-and-conversion)
+
+[4.3. Docker Container Introduction](#4.3.-docker-container-introduction)
+
+[4.4. Building the Application Image](#4.4.-building-the-application-image)
+
+[4.5. Application CI/CD Pipeline](#4.5.-application-ci-cd-pipeline)
+
+---
+
 ## 1\. Introduction {#1.-introduction}
 
 This project is a step-by-step tutorial that introduces basic concepts of modern CI/CD pipelines by creating a useful end-to-end system that is secure and deploys to a lightweight server being a Raspberry Pi 5 available through a public IP.
@@ -376,8 +390,6 @@ This should execute the changes on your Raspberry Pi. You can manually undo chan
 
 [GitHub Actions](https://docs.github.com/en/actions/about-github-actions/understanding-github-actions) allows custom CI/CD workflows to be executed on ‘runners’ when events occur on a code repository. The runner is a (Ubuntu, Windows or MacOS) [container image](https://github.com/actions/runner-images) that executes the GitHub workflow job. GitHub is very ‘generous’ and provides free compute resources as [GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners). Come to think of it, if it was not free, I would not use it and you would not be reading this. 2,000 minutes of free runner minutes are provided as part of the free plan and this should suffice for the needs of a learner. If you want more, you can buy paid plans or host runners privately if you prefer. 
 
-[GitHub Actions](https://docs.github.com/en/actions/about-github-actions/understanding-github-actions) allows custom CI/CD workflows to be executed on ‘runners’ when events occur on a code repository. The runner is a (Ubuntu, Windows or MacOS) [container image](https://github.com/actions/runner-images) that executes the GitHub workflow job. GitHub is very ‘generous’ and provides free compute resources as [GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners). Come to think of it, if it was not free, I would not use it and you would not be reading this. 2,000 minutes of free runner minutes are provided as part of the free plan and this should suffice for the needs of a learner. If you want more, you can buy paid plans or host runners privately if you prefer. 
-
 GitHub Actions also offers such features as secure secret management that we will use to store credentials and other variables to be injected at runtime for use in our workflows.  
 The private key should be accessible by the pipeline. For this, we create a secret in GitHub Actions. In your repo, go to Settings-\>Security-\>Actions-\>New repository secret and create a secret called SSH_PRIVATE_KEY. Copy the text contents of ~/.ssh/\<private-key-file\> as the value. Also create a secret with your Pi’s IP or domain name called PI_HOST.
 
@@ -410,7 +422,7 @@ name: CI/CD for Raspberry Pi
 
 on:  
   push:  
-    branches: \[ "main" \]
+    branches: [ "main" ]
 
 jobs:  
   build-deploy:  
@@ -442,8 +454,8 @@ jobs:
 
       - name: Run Ansible Playbook  
         run: |  
-          ansible-playbook \\  
-            -i ansible/inventory.yml \\  
+          ansible-playbook \
+            -i ansible/inventory.yml \
             ansible/playbooks/setup_pi.yml
 ```
 
@@ -459,6 +471,210 @@ Explanation of the pipeline is as follows:
 Commit this to your repo to the default (main) branch and this should trigger the build-deploy job. You can also ssh into the Raspberry Pi before the job executes and run commands like `sudo ufw reset` to verify that the pipeline worked. You can validate the successful execution with `sudo ufw status numbered` on the Pi.
 
 To watch your workflow runs, click on the Actions tab in your repository and it should show a job ran for your last commit because of the presence of the file .github/workflows/ci-cd.yml. You can click the job and explore the run in depth.
+
+
+## 4\. Profile Web Application {#4.-profile-web-application}
+
+### 4.1. (Minimalist) Web Application Architecture {#4.1.-(minimalist)-web-application-architecture}
+
+The aim was to create a very simple content management system for simple articles with links and images. I realized that markdown was enough for my purposes and thus found that the utility [Pandoc](https://pandoc.org/), a universal document converter can convert markdown into HTML. This was the first article I published using this method. I actually am writing this article on Google Drive as a Google Doc which allows me to download the document as a markdown (md) file from which I copy-paste the relevant portions. I use VSCode to fine-tune the markdown produced and push it to the GitHub repository which triggers the CI/CD pipeline executed in a GitHub Actions runner. The pipeline executes a script that runs Pandoc and converts each md file into HTML and then copies the HTML and images into a NGINX docker image and then publishes the image to the Docker Hub container image library.
+
+### 4.2. Markdown and Conversion {#4.2.-markdown-and-conversion}
+
+[Markdown](https://en.wikipedia.org/wiki/Markdown) is a lightweight markup language for creating formatted text using a plain text editor. Most developers come across markdown when writing README.md files which are published as default as HTML on source code repository services. The markdown format was rebranded as CommonMark and adapted as a standard with [RFC 7763](https://www.rfc-editor.org/rfc/rfc7763.html) introducing a MIME type ‘text/markdown’. 
+
+Common formatting options are as follows:
+
+* \#Heading 1  
+* \#\# Heading 2  
+* \#\#\# Heading 3  
+* \#\#\# Heading {\#custom-id}  
+* \*\*Bold\*\*  
+* \*Italics\*  
+* \> BlockQuotes  
+* \>\>\>| BlockQuotes  
+* \~\~Strikethrough  
+* H\~2\~O - Subscript  
+* a^2^ \+ b^2^ - Superscript  
+* Highlight \== important words \==  
+* Footnote [^1]  
+* [^1]Footnote description  
+* [Link name]{[https://link.example.com](https://link.example.com)}  
+* Ordered List (start with number ex. “1. First item”)  
+* Unordered list (start with -)  
+* Definition List  
+* Term  
+  :definition  
+* Task List  
+  -[x] Task done  
+  -[] Task 2  
+* Code blocks can be written like:  
+  \`\`\`  
+  someCode();  
+  \`\`\`  
+* Code can also be written with:  
+  \`singleLineOfCode(a, b);  
+* Horizontal line  
+  - - -  
+* Image: ![alt text](imageFile.png)  
+* Table  
+  |Name |Age |  
+  |---------|-----|  
+  |fareed|42  |  
+* Latex can also be used and so can emojis
+
+To look at how this webpage was made, head to the md file in the GitHub repo at [https://github.com/fareed1983/profile/blob/main/site/homepi-cicd-pipeline.md](https://github.com/fareed1983/profile/blob/main/site/homepi-cicd-pipeline.md) and view the “raw” version.
+
+### 4.3. Docker Container Introduction {#4.3.-docker-container-introduction}
+
+Virtualization was the answer to under-utilization of hardware resources by packing more server loads shared on the same physical server. In the early 2000s, server virtualization used hypervisors that emulated the entire machine with each guest OS running its own kernel. This allowed for strong isolation mixing different OSes. However, these virtual machines took a long time to boot up and consumed a lot of memory and CPU resources. 
+
+With microservices taking center stage, the need arose for a lot more isolated servers that were continuously delivered and code changes were expected to reach production within minutes. Only an application and the user space libraries started being isolated while the underlying host kernel was shared. Docker was released in 2013 and soon instances of servers could be spawned consuming only a few megabytes of memory in milliseconds.
+
+A Docker image is a template which can be executed running a container. The steps required to build the image are described in a Dockerfile. Each [instruction](https://docs.docker.com/reference/dockerfile/) in the Dockerfile (FROM, COPY, RUN etc.) creates a layer that are cached which optimizes the image building and storage process. 
+
+Images are generally published on public or private image registries. An image built locally or in a runner as part of a CI/CD pipeline can be published and then distributed to any host that runs Docker or a container orchestration platform like Kubernetes as part of deployment. One such popular registry is Docker Hub which also publishes trusted base images.
+
+Each image is built with a base image which is specified by the FROM instruction. Base images can be chosen based on the OS required, compatibility to technology and frameworks of the application, startup time, security requirements, storage space, reputation and updates and a host of other factors. Some popular official Docker base images include Alpine (lightweight essential Linux), Ubuntu, Python, Node, GoLang, Postgres, Redis etc.
+
+Other instructions are used to copy files into the image (ADD & COPY), add environment variables (ENV), expose ports of the application (EXPOSE), mount volumes for persistent storage (VOLUME), set default executable (ENTRYPOINT), specify default arguments (CMD) etc. Each instruction creates a layer that is cached.
+
+The docker CLI allows for building and testing images locally or publishing them to Docker Hub or any image registry.
+
+### 4.4. Building the Application Image {#4.4.-building-the-application-image}
+
+The profile web application source repository is hosted at [github.com/fareed1983/profile](http://github.com/fareed1983/profile). The application directory structure is as follows. 
+``` 
+├── .github  
+│   └── workflows  
+│       └── publish.yml  
+├── .gitignore  
+├── Dockerfile  
+├── output  
+│   ├── homepi-cicd-pipeline.html  
+│   ├── images  
+│   │   ├── ci-cd-raspberry-pi-terraform-kubernetes.jpg  
+│   │   └── linkedin-logo.svg  
+│   └── index.html  
+├── README.md  
+├── scripts  
+│   └── convert.sh  
+└── site  
+    ├── homepi-cicd-pipeline.md  
+    ├── images  
+    │   ├── ci-cd-raspberry-pi-terraform-kubernetes.jpg  
+    │   └── linkedin-logo.svg  
+    └── index.md
+```
+
+The site folder contains the md files that are converted into html and outputted in the output folder when scripts/convert.sh is run. The Pandoc document converter runs from within convert.sh which also copies the images. Let’s look at the very simple Dockerfile which has instructions to build the image.
+
+`FROM nginx:alpine`
+
+`WORKDIR /app`
+
+`RUN apk add --no-cache pandoc bash`
+
+`COPY . /app`
+
+`RUN chmod +x /app/scripts/convert.sh && /app/scripts/convert.sh`
+
+`RUN mv /app/output/* /usr/share/nginx/html/`
+
+`EXPOSE 80`  
+`CMD ["nginx", "-g", "daemon off;"]`
+
+[NGINX](https://nginx.org/) is an HTTP web server, reverse proxy, content cache, load balancer, TCP/UDP proxy server, and mail proxy server. We will only be using the web server part functionality of NGINX to serve our static profile web-pages. For this, we start our image with Docker Hub’s official [NGINX Alpine base image](https://hub.docker.com/_/nginx) with the FROM instruction.
+
+We specify the WORKDIR to /app is just a scratchpad for us which is created in the image and becomes our working directory. 
+
+We use RUN to install Pandoc but not cache it and not get stored in the layer as it will not be used at run-time and this keeps the image size small.
+
+COPY . /app copies the entire project directory on the host into /app in the image.
+
+Then we change the permissions of the convert.sh script to be executable and execute it. This converts all md files into html in the output folder and copies the images too. 
+
+The output folder is then moved to a location that NGINX uses by default to serve static websites from.
+
+We then expose port 80 so that the container can listen for HTTP connections when the users and/or orchestrators execute the container.
+
+Finally we specify the command to execute which is nginx in our case which launches the NGINX server in the foreground.
+
+You can now build the container locally (after installing docker) with:  
+`docker build -t fareed83/profile-site:latest -f Dockerfile .`
+
+Here ‘fareed83’ is the namespace required by Docker Hub which is my username, ‘profile-site’ is the repository name inside the namespace and ‘latest’ is the default tag name which means that this is the ‘most recent’ image of this repository.
+
+You can list the local images locally as follows:  
+`docker images`
+
+You can run the the local image as follows:  
+`docker run --rm -it -p 80:80 fareed83/profile-site:latest`
+
+The profile website should now be served on your browser at port 80 ([http://localhost:80](http://localhost:80)). You can verify this and pat yourself on the back for your newfound knowledge.
+
+You can remove the image:  
+`docker rmi fareed83/profile-site:latest`
+
+At this point, you should create a Docker Hub account if you don’t already have one and create a repository called profile-site. If you want to change the name, also change the name of the image you will be creating.You will need to create a personal access token to use with the CLI from ‘Account Settings’. You can now push images to your Docker Hub repository that you can keep private or publish publicly.
+
+To push the image to Docker Hub, first login and then push as follows:  
+Push image from local:  
+`docker login -u "<Docker Hub username>" -p "<personal access token>"`  
+`docker push <Docker Hub username>/profile-site:latest`
+
+You can now delete the image locally and pull it again from the image repository:  
+`docker pull <Docker Hub username>/profile-site:latest`
+
+### 4.5. Application CI/CD Pipeline {#4.5.-application-ci-cd-pipeline}
+
+We use Github Actions again to automate the building (conversion from md to HTML) and publishing (to Docker Hub) of our application image (the profile-site). This is triggered whenever we update the content on our Github repository. This image will later be picked up by a container orchestrator (K8s in our case). You will need to create two secrets in the Github repository named DOCKERHUB\_USERNAME and DOCKERHUB\_PASSWORD with your respective values.
+
+Let’s look at our Github Actions workflow.
+
+```
+name: Build Website and Push Docker Image
+
+on:  
+  push:  
+    branches:  
+      - main
+
+jobs:  
+  build-and-push:  
+    runs-on: ubuntu-latest
+
+    steps:  
+      - name: Checkout repository  
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx  
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to DockerHub  
+        uses: docker/login-action@v3  
+        with:  
+          username: ${{ secrets.DOCKERHUB\_USERNAME }}  
+          password: ${{ secrets.DOCKERHUB\_PASSWORD }}
+
+      - name: Build and push Docker image (multi-arch)  
+        uses: docker/build-push-action@v5  
+        with:  
+          context: .  
+          file: Dockerfile  
+          push: true  
+          tags: fareed83/profile-site:latest  
+          platforms: linux/amd64,linux/arm64
+```
+
+Steps of the workflow:
+
+1. We are using Github’s checkout action to checkout the sources from our repository.  
+2. We setup buildx which is required to generate images for multiple architectures. The default images built by Docker are for the amd64 architecture as the runner is x86\_64. The Raspberry Pi 5 is an arm64/armv7 platform. Thus we will build for both amd64 and arm64 architectures. Buildx uses QEMU under the hood to build for multiple architectures. We can use buildx on the command-line too for [multi-platform builds](https://docs.docker.com/build/building/multi-platform/). Instead of `docker build` we can use `docker buildx build -t fareed83/profile-site:latest -f Dockerfile --platform linux/amd64,linux/arm64 .` But here our purpose is CI/CD automation.  
+3. We then login to Docker Hub with secrets that we stored in our Github repository.  
+4. Finally we use the build-push-action to build the image the steps of which are specified in the Docker file and then push the built images of both platforms to Dockerhub.
+
+We are now ready to let the orchestration begin!
 
 
 # [< Back to Fareed R](./index.md)
