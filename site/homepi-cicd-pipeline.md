@@ -42,7 +42,7 @@
 
 [**4\. Profile Web Application**](#4.-profile-web-application)
 
-[4.1. (Minimalist) Web Application Architecture](#4.1.-\(minimalist\)-web-application-architecture)
+[4.1. (Minimalist) Web Application Architecture](#4.1.-minimalist-web-application-architecture)
 
 [4.2. Markdown and Conversion](#4.2.-markdown-and-conversion)
 
@@ -51,6 +51,19 @@
 [4.4. Building the Application Image](#4.4.-building-the-application-image)
 
 [4.5. Application CI/CD Pipeline](#4.5.-application-ci-cd-pipeline)
+
+
+[**5\. Kubernetes**](#5.-kubernetes)
+
+[5.1. Introduction to Kubernetes](#5.1.-introduction-to-kubernetes)
+
+[5.2. Basic Kubernetes Concepts](#5.2.-basic-kubernetes-concepts)
+
+[5.3. Installation of k2s Cluster](#5.3.-installation-of-k2s-cluster)
+
+[5.4. Manual Configuration of Web Application Pods](#5.4.-manual-configuration-of-web-application-pods)
+
+[5.5. High-Level Architecture of Workload](#5.5.-high-level-architecture-of-workload)
 
 ---
 
@@ -105,6 +118,9 @@ A package manager for Kubernetes that uses charts that are templatized and share
 
 **Pod**  
 The smallest deployable units of computing comprising of one or more containers that can be created and managed in Kubernetes.
+
+**Terraform**  
+An IaC tool that allows for building, changing and versioning infrastructure which can include components like compute instances, storage, and networking; and high level components like DNS entries.
 
 ### 1.3. Goals of this Tutorial {#1.3.-goals-of-this-tutorial}
 
@@ -475,7 +491,7 @@ To watch your workflow runs, click on the Actions tab in your repository and it 
 
 ## 4\. Profile Web Application {#4.-profile-web-application}
 
-### 4.1. (Minimalist) Web Application Architecture {#4.1.-(minimalist)-web-application-architecture}
+### 4.1. (Minimalist) Web Application Architecture {#4.1.-minimalist-web-application-architecture}
 
 The aim was to create a very simple content management system for simple articles with links and images. I realized that markdown was enough for my purposes and thus found that the utility [Pandoc](https://pandoc.org/), a universal document converter can convert markdown into HTML. This was the first article I published using this method. I actually am writing this article on Google Drive as a Google Doc which allows me to download the document as a markdown (md) file from which I copy-paste the relevant portions. I use VSCode to fine-tune the markdown produced and push it to the GitHub repository which triggers the CI/CD pipeline executed in a GitHub Actions runner. The pipeline executes a script that runs Pandoc and converts each md file into HTML and then copies the HTML and images into a NGINX docker image and then publishes the image to the Docker Hub container image library.
 
@@ -628,7 +644,7 @@ You can now delete the image locally and pull it again from the image repository
 
 ### 4.5. Application CI/CD Pipeline {#4.5.-application-ci-cd-pipeline}
 
-We use Github Actions again to automate the building (conversion from md to HTML) and publishing (to Docker Hub) of our application image (the profile-site). This is triggered whenever we update the content on our Github repository. This image will later be picked up by a container orchestrator (K8s in our case). You will need to create two secrets in the Github repository named DOCKERHUB\_USERNAME and DOCKERHUB\_PASSWORD with your respective values.
+We use Github Actions again to automate the building (conversion from md to HTML) and publishing (to Docker Hub) of our application image (the profile-site). This is triggered whenever we update the content on our Github repository. This image will later be picked up by a container orchestrator (K8s in our case). You will need to create two secrets in the Github repository named DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD with your respective values.
 
 Let’s look at our Github Actions workflow.
 
@@ -654,8 +670,8 @@ jobs:
       - name: Login to DockerHub  
         uses: docker/login-action@v3  
         with:  
-          username: ${{ secrets.DOCKERHUB\_USERNAME }}  
-          password: ${{ secrets.DOCKERHUB\_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}  
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
       - name: Build and push Docker image (multi-arch)  
         uses: docker/build-push-action@v5  
@@ -670,11 +686,133 @@ jobs:
 Steps of the workflow:
 
 1. We are using Github’s checkout action to checkout the sources from our repository.  
-2. We setup buildx which is required to generate images for multiple architectures. The default images built by Docker are for the amd64 architecture as the runner is x86\_64. The Raspberry Pi 5 is an arm64/armv7 platform. Thus we will build for both amd64 and arm64 architectures. Buildx uses QEMU under the hood to build for multiple architectures. We can use buildx on the command-line too for [multi-platform builds](https://docs.docker.com/build/building/multi-platform/). Instead of `docker build` we can use `docker buildx build -t fareed83/profile-site:latest -f Dockerfile --platform linux/amd64,linux/arm64 .` But here our purpose is CI/CD automation.  
+2. We setup buildx which is required to generate images for multiple architectures. The default images built by Docker are for the amd64 architecture as the runner is x86_64. The Raspberry Pi 5 is an arm64/armv7 platform. Thus we will build for both amd64 and arm64 architectures. Buildx uses QEMU under the hood to build for multiple architectures. We can use buildx on the command-line too for [multi-platform builds](https://docs.docker.com/build/building/multi-platform/). Instead of `docker build` we can use `docker buildx build -t fareed83/profile-site:latest -f Dockerfile --platform linux/amd64,linux/arm64 .` But here our purpose is CI/CD automation.  
 3. We then login to Docker Hub with secrets that we stored in our Github repository.  
 4. Finally we use the build-push-action to build the image the steps of which are specified in the Docker file and then push the built images of both platforms to Dockerhub.
 
 We are now ready to let the orchestration begin!
+
+
+## 5\. Kubernetes {#5.-kubernetes}
+
+We can manage a few docker containers easily running applications on servers. However, when hundreds of containers are to be managed throughout their lifecycle, things can get very complicated without the use of automation. As per [RedHat](https://www.redhat.com/en/topics/containers/what-is-container-orchestration), “Container orchestration is the process of automating the deployment, management, scaling and networking of containers throughout their lifecycle, making it possible to deploy software consistently across many different environments at scale”.
+
+### 5.1. Introduction to Kubernetes {#5.1.-introduction-to-kubernetes}
+
+The most common container orchestration platform is [Kuberenetes](https://kubernetes.io/docs/concepts/overview/#why-you-need-kubernetes-and-what-can-it-do) (K8s) which is used in self-hosted servers and also supported by various cloud providers natively. Features include service discovery, load balancing, storage management, automated rollouts, rollbacks, container sizing, secret management, configuration management, scaling etc.
+
+K8s comprises a set of independent composable control processes that continuously drive the current state of infrastructure towards a desired state. K8s is deployed as a cluster of a controller plaine plus a set of worker nodes that run containerised applications. In the Raspberry Pi, we will be using K3s which is a bare minimal K8s distribution that can bundle the control plane and worker node into a single-node cluster. The K8s control plane hosts an API server that is exposed to users and other parts of the cluster. K8s provides a kubectl CLI that enables interaction and management of clusters.
+
+K8s resources are described in YAML files which are executed with `kubectl apply -f config-file.yaml` which would then create and/or update components as per the configuration supplied. Files contain metadata  that contains labels and specification that contains selectors.
+
+### 5.2. Basic Kubernetes Concepts {#5.2.-basic-kubernetes-concepts}
+
+**Node**  
+These are machines, physical or virtual, that are interconnected and coordinated as part of a K8s cluster. They can either be the control plane or workers that contain the pods. Use the command `kubectl get nodes` to list all the nodes on a cluster.
+
+**Namespaces**  
+They provide a means of isolating groups of resources within a single cluster and provide a scope for names. Names of resources must be unique within a namespace. Use the command `kubectl get namespaces` to list all the namespaces of a cluster.
+
+**Pods**  
+The smallest deployable units of computing in K8s comprising of one or more containers that can be created and managed in Kubernetes. Pods are processes. Generally, pods have single containers. However when multiple containers are run in the same pod, they share resources like the same network namespace and storage volumes. Generally auxiliary containers are bundled to a main application in a pod for which logging and monitoring are good examples of. Each pod in a cluster gets its own unique cluster-wide IP address. Processes running in different containers in the same pod can communicate with each other over localhost.  Use the command kubectl `get pods -n <namespace>` to list all the pods in a namespace.
+
+**Services**  
+They are a logical set of pods and a policy by which to access them. They provide a stable and consistent IP address and DNS name even if pods containing an application are added or removed. Services can be used to distribute network traffic across multiple pods for load balancing. A service can be exposed to the public internet using an ingress or a gateway. There are several service types:
+
+* ClusterIP - Exposes the service through an internal IP accessible only by other cluster resources. A good use-case would be a database or internal API calls to an internal micro-service.  
+* NodePort - Exposes the service at a static port which is accessible externally using \<nodeIP\>:\<nodePort\>. The control plane will allocate a port from a range or you can specify it. It is used to set up your own load balancing solution, to configure environments not fully supported by K8s or even to expose one or more nodes’ IP addresses directly.  
+* LoadBalancer - The service is accessible through the cloud provider’s load balancer (like AWS ALB). Here, K8s does not directly provide a load balancing component.  
+* ExternalName - Maps the service to a DNS name outside the cluster. When looking up the host with local DNS, the DNS service returns a CNAME record with the value of the external domain name.
+
+**Deployments**  
+A deployment manages a replicated set (ReplicaSet) of pods to run an application workload, usually stateless. Deployments help to scale replica pods, enable rollout or rollbacks across replica pods.
+
+**StatefulSets**  
+Deployments manage stateless applications while StatefulSets manage applications that require persistent storage, like database instances. Keep in mind that the general practice is to host clustered databases outside the K8s cluster.
+
+**Volumes**  
+Allows pods that require data persistence to access and share data persistently via the filesystem. Data stored in volumes persists across container restarts. Volumes are mounted at specified paths within the container file system. 
+
+**PersistantVolumes**  
+PVs are cluster resources that have a lifecycle independent from any individual pod that uses the PV. A PV has to be requested by pods through a PersistentVolumeClaim (PVC). A PVC should be in the same namespace as the pod claiming it.
+
+**Ingress**  
+[Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) allows making HTTP/s services available using a protocol-aware configuration mechanism that understands concepts like URIs, hostnames, paths etc. Ingress is a level-7 proxy server or load balancer that routes HTTP/s requests to services. It can funnel multiple virtual hosts and paths through one external address and then routes them services internally. It also terminates TLS such that pods only need to handle HTTP requests without encryption. Other optional utilities are rate limiting, firewall, authentication etc. There are ingress controllers available for Apache, Traefik, nginx, AWS etc. We will be using the nginx ingress controller because it is widely used, lightweight, mature and performant. 
+
+**CRDs**  
+Custom Resource Definitions (CRD) allows extension of the K8s API by defining custom resource types. It is a YAML object that extends the K8s API allowing for the management of new types of objects beyond the defaults like pods and services. After registration of custom resources, instances of the new type of resource can be created, read, updated and deleted.
+
+**ConfigMap**  
+Are consumed by pods as environment variables, command-line arguments or configuration files and are stored as key-value pairs. They allow decoupling of environment-specific configuration from container images.
+
+**Secrets**  
+Are similar to ConfigMaps but are used to store sensitive values like password, tokens, keys etc. 
+
+**Helm**  
+[Helm](https://helm.sh/) is a templating engine that acts as a package manager for Kubernetes allowing for easier configuration of a common set of resources for a given use-case. There are standard bundles published in public or private repositories which act as reusable recipes for infrastructure deployment eliminating the need of configuring complex but widely used deployment patterns from scratch. Helm uses charts to describe how to run individual applications and services on Kubernetes. Without Helm, Kubernetes YAML files contain hard-coded configuration values for such resources as ports, number of replicas etc. Also, for each application, multiple YAML files have to be updated without Helm. Helm introduces a templating system that takes values from a YAML file that it applies to charts.
+
+### 5.3. Installation of k2s Cluster {#5.3.-installation-of-k2s-cluster}
+
+Install K3s in the setup_pi.yml Ansible playbook as follows. Note that the default ingress controller in K3s is Traefik which we intend to replace with NGNIX. Add the following to the Ansible playbook before the handlers section.
+```
+   - name: Enable cgroup memory in cmdline.txt
+      lineinfile:
+        path: /boot/firmware/cmdline.txt
+        # This regex captures the entire line as group 1
+        # The 'line' puts cgroup_memory=1 cgroup_enable=memory at the end of that line
+        regexp: '^(.*)$'
+        line: '\1 cgroup_memory=1 cgroup_enable=memory'
+        backrefs: yes
+      when: "'cgroup_memory=1 cgroup_enable=memory' not in cmdline_content.stdout"
+
+    - name: Check if K3s is installed
+      stat:
+        path: /usr/local/bin/k3s
+      register: k3s_bin
+
+    - name: Install K3s
+      shell: curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik  --tls-san {{ pi_host }}" sh -
+      # We disable trafik as the default ingress controller
+      when: not k3s_bin.stat.exists
+
+    - name: Fetch K3s kubeconfig from Pi
+      fetch:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: ../../terraform/k3s.yaml
+        flat: yes
+      become: yes
+```
+
+After the GitHub Actions workflow is run on merge to the main branch, use sudo `kubectl get pods -n kube-system` on the Raspberry Pi to get an output like the below:  
+      
+`NAME                                      READY   STATUS    RESTARTS   AGE`  
+`coredns-ccb96694c-cbzzt                   1/1     Running   0          110s`  
+`local-path-provisioner-5cf85fd84d-mgmtr   1/1     Running   0          110s`  
+`metrics-server-5985cbc9d7-pkh2d           1/1     Running   0          110s`
+
+The first part of the command, “kubectl get pods” gets all pods running on the Kubernetes cluster. As no services are deployed, it will not return anything. Adding “-n kube-system” allows the listing of pods running in the kube-system namespace which are core system services. A pod can have multiple containers. The second row, “READY” means that 1 pod out of 1 in the container is running correctly. The other columns are self-explanatory.
+
+### 5.4. Manual Configuration of Web Application Pods {#5.4.-manual-configuration-of-web-application-pods}
+
+To get somewhat of a better grasp on how things really work under the hood, we can host the website using K3s installed on the Raspberry PI by using manual commands on the CLI to better understand the deployment automated by Terraform. We leave it as an exercise to the reader to manually configure the web application using the kubectl command-line based on the automated Terraform IaC pipeline described below.
+
+### 5.5. High-Level Architecture of Workload {#5.5.-high-level-architecture-of-workload}
+
+Our infrastructure application stack will consist of the following resources:
+
+| Layer | Component/Resource (Kind, Name, Namespace) | Purpose |
+| :---- | :---- | :---- |
+| Edge and TLS | NGINX Ingress Controller (installed with Helm) helm_release.nginx_ingress, ns ingress-nginx | Cluster-wide L7 proxy terminating TLS & routing HTTP to services |
+|  | Service created by the chart (LoadBalancer) | Exposes ingress controller on a public IP |
+|  | Ingress (profile-site-ingress, ns default) | Declares host-based and path-based rules and forces HTTPs |
+| Certificate Management | [cert-manager](http://cert-manager.io/docs/) (installed with Helm) Helm_release.cert_manager, ns cert-manager | CRDs and controllers to issue and renew X.509 certificates for TLS |
+|  | Clusterissuer letsencrypt-prod, cluster-scoped | Configuration for Let’s Encrypt that is referenced by ingress |
+|  | Certificate Profile-site-tls, ns default | cert-manager automatically requests it and stores key+cert in a secret |
+| Application Workload | Deployment Profile-site, ns default | Manages the profile-site pod/s and keeps them running |
+|  | Pod template Inside Deployment | Container running fareed83/profile:latest image and mounts an volume for Nginx cache |
+|  | ReplicaSet / Pods Managed by Deployment | We have only one running replica created during rollouts |
+| Networking inside cluster | Service Profile-site-service, ClusterIP | Ingress forwards requests to this IP address and used for load-balancing |
+| Storage (ephemeral) | Volume emptyDir called nginx-cache | /var/cache/nginx is mounted in container |
 
 
 # [< Back to Fareed R](./index.md)
