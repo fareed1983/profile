@@ -59,11 +59,27 @@
 
 [5.2. Basic Kubernetes Concepts](#5.2.-basic-kubernetes-concepts)
 
-[5.3. Installation of k2s Cluster](#5.3.-installation-of-k2s-cluster)
+[5.3. Installation of k3s Cluster](#5.3.-installation-of-k3s-cluster)
 
 [5.4. Manual Configuration of Web Application Pods](#5.4.-manual-configuration-of-web-application-pods)
 
 [5.5. High-Level Architecture of Workload](#5.5.-high-level-architecture-of-workload)
+
+[**6\. Terraform**](#6.-terraform)
+
+[6.1. Terraform Introduction](#6.1.-terraform-introduction)
+
+[6.2. Basic Terraform Concepts](#6.2.-basic-terraform-concepts)
+
+[6.3. Terraform Creation of Workload](#6.3.-terraform-creation-of-workload)
+
+[6.4. Terraform Bootstrapping](#6.4.-terraform-bootstrapping)
+
+[6.5. Basic Terraform Test](#6.5.-basic-terraform-test)
+
+[6.6. Completed IaC Pipeline](#6.6.-completed-iac-pipeline)
+
+[**7\. Final Thoughts**](#7.-final-thoughts)
 
 ---
 
@@ -396,8 +412,8 @@ We can run this Ansible playbook locally from your development machine by export
 
 From the root, execute the following commands:  
 `export PI_SSH_PORT=”22”`  
-`export PI_HOST="<Pi’s host or IP"`  
-`export PI_USER="Username on PI"`  
+`export PI_HOST="<Pi’s host or IP>"`  
+`export PI_USER="<Username on Pi>"`  
 `ansible-playbook -i ansible/inventory.yml ansible/playbooks/setup_pi.yml`
 
 This should execute the changes on your Raspberry Pi. You can manually undo changes as experiments and see if Ansible reapplies the desired state as per the Playbook.
@@ -407,7 +423,7 @@ This should execute the changes on your Raspberry Pi. You can manually undo chan
 [GitHub Actions](https://docs.github.com/en/actions/about-github-actions/understanding-github-actions) allows custom CI/CD workflows to be executed on ‘runners’ when events occur on a code repository. The runner is a (Ubuntu, Windows or MacOS) [container image](https://github.com/actions/runner-images) that executes the GitHub workflow job. GitHub is very ‘generous’ and provides free compute resources as [GitHub-hosted runners](https://docs.github.com/en/actions/using-github-hosted-runners/using-github-hosted-runners). Come to think of it, if it was not free, I would not use it and you would not be reading this. 2,000 minutes of free runner minutes are provided as part of the free plan and this should suffice for the needs of a learner. If you want more, you can buy paid plans or host runners privately if you prefer. 
 
 GitHub Actions also offers such features as secure secret management that we will use to store credentials and other variables to be injected at runtime for use in our workflows.  
-The private key should be accessible by the pipeline. For this, we create a secret in GitHub Actions. In your repo, go to Settings-\>Security-\>Actions-\>New repository secret and create a secret called SSH_PRIVATE_KEY. Copy the text contents of ~/.ssh/\<private-key-file\> as the value. Also create a secret with your Pi’s IP or domain name called PI_HOST.
+The private key should be accessible by the pipeline. For this, we create a secret in GitHub Actions. In your repo, go to Settings->Security->Actions->New repository secret and create a secret called SSH_PRIVATE_KEY. Copy the text contents of ~/.ssh/<private-key-file> as the value. Also create a secret with your Pi’s IP or domain name called PI_HOST.
 
 ### 3.3. Execute the Ansible Playbook from GitHub Actions {#3.3.-execute-the-ansible-playbook-from-github-actions}
 
@@ -460,7 +476,7 @@ jobs:
       - name: Add Pi host key to known_hosts  
         run: |  
           mkdir -p ~/.ssh  
-          ssh-keyscan -p $PI_SSH_PORT $PI_HOST  \>\> ~/.ssh/known_hosts  
+          ssh-keyscan -p $PI_SSH_PORT $PI_HOST  >> ~/.ssh/known_hosts  
           chmod 600 ~/.ssh/known_hosts
 
       - name: Install Ansible  
@@ -508,11 +524,11 @@ Common formatting options are as follows:
 * \*\*Bold\*\*  
 * \*Italics\*  
 * \> BlockQuotes  
-* \>\>\>| BlockQuotes  
+* \>\>\>\| BlockQuotes  
 * \~\~Strikethrough  
 * H\~2\~O - Subscript  
 * a^2^ \+ b^2^ - Superscript  
-* Highlight \== important words \==  
+* Highlight == important words ==  
 * Footnote [^1]  
 * [^1]Footnote description  
 * [Link name]{[https://link.example.com](https://link.example.com)}  
@@ -720,7 +736,7 @@ The smallest deployable units of computing in K8s comprising of one or more cont
 They are a logical set of pods and a policy by which to access them. They provide a stable and consistent IP address and DNS name even if pods containing an application are added or removed. Services can be used to distribute network traffic across multiple pods for load balancing. A service can be exposed to the public internet using an ingress or a gateway. There are several service types:
 
 * ClusterIP - Exposes the service through an internal IP accessible only by other cluster resources. A good use-case would be a database or internal API calls to an internal micro-service.  
-* NodePort - Exposes the service at a static port which is accessible externally using \<nodeIP\>:\<nodePort\>. The control plane will allocate a port from a range or you can specify it. It is used to set up your own load balancing solution, to configure environments not fully supported by K8s or even to expose one or more nodes’ IP addresses directly.  
+* NodePort - Exposes the service at a static port which is accessible externally using <nodeIP>:<nodePort>. The control plane will allocate a port from a range or you can specify it. It is used to set up your own load balancing solution, to configure environments not fully supported by K8s or even to expose one or more nodes’ IP addresses directly.  
 * LoadBalancer - The service is accessible through the cloud provider’s load balancer (like AWS ALB). Here, K8s does not directly provide a load balancing component.  
 * ExternalName - Maps the service to a DNS name outside the cluster. When looking up the host with local DNS, the DNS service returns a CNAME record with the value of the external domain name.
 
@@ -751,9 +767,9 @@ Are similar to ConfigMaps but are used to store sensitive values like password, 
 **Helm**  
 [Helm](https://helm.sh/) is a templating engine that acts as a package manager for Kubernetes allowing for easier configuration of a common set of resources for a given use-case. There are standard bundles published in public or private repositories which act as reusable recipes for infrastructure deployment eliminating the need of configuring complex but widely used deployment patterns from scratch. Helm uses charts to describe how to run individual applications and services on Kubernetes. Without Helm, Kubernetes YAML files contain hard-coded configuration values for such resources as ports, number of replicas etc. Also, for each application, multiple YAML files have to be updated without Helm. Helm introduces a templating system that takes values from a YAML file that it applies to charts.
 
-### 5.3. Installation of k2s Cluster {#5.3.-installation-of-k2s-cluster}
+### 5.3. Installation of k3s Cluster {#5.3.-installation-of-k3s-cluster}
 
-Install K3s in the setup_pi.yml Ansible playbook as follows. Note that the default ingress controller in K3s is Traefik which we intend to replace with NGNIX. Add the following to the Ansible playbook before the handlers section.
+K3s is a CNCF-conformant Kubernetes distribution which means that it implements the specified APIs that are standardized to manage a cluster. Install K3s in the setup\_pi.yml Ansible playbook as follows. Note that the default ingress controller in K3s is Traefik which we intend to replace with NGNIX. Add the following to the Ansible playbook before the handlers section.
 ```
    - name: Enable cgroup memory in cmdline.txt
       lineinfile:
@@ -782,6 +798,25 @@ Install K3s in the setup_pi.yml Ansible playbook as follows. Note that the defau
         flat: yes
       become: yes
 ```
+
+In the above,
+
+1. We ensure that the kernel command line enables memory cgroup support required for K3s to manage container resources. Standard Raspberry Pi OS installations do not start with cgroups enabled that are required to start the systemd service. We use the lineinfile Ansible module to append the required parameters when they are not present.  
+2. Then we check if K3s is installed by looking for the existence of the K3s binary else we install K3s with a shell command and disable Traefik which is the default ingress controller.
+3. We then fetch the k3s.yaml file which is used to enable remote management of the K8s cluster using the K8s API.
+
+The data in the k3s.yaml should be kept secret and not shared. We will pull this file into the runner and replace the IP address with the domain name of our Raspberry Pi. Also, we will have to allow the port 6443 in UFW and also forward the port from our router. Communication on this port will be secure because it uses a client-certificate and the client-key-data which is a private key to authenticate the user who can act as the administrator of the cluster. The certificate-authority-data will be used to verify the server and encrypt data in transit with TLS.
+
+We also add the below to the GitHub Actions workflow:
+
+```
+     - name: Update server IP in kubeconfig and set path
+        run: |
+          sed -i "s|127.0.0.1|$PI_HOST|g" ./terraform/k3s.yaml
+          echo "KUBE_CONFIG_PATH=$(pwd)/terraform/k3s.yaml" >> $GITHUB_ENV
+```
+
+We do this to change the localhost IP to the provided PI host. Also we set the environment variable required to reference the right K3s configuration for remote management.
 
 After the GitHub Actions workflow is run on merge to the main branch, use sudo `kubectl get pods -n kube-system` on the Raspberry Pi to get an output like the below:  
       
@@ -814,5 +849,408 @@ Our infrastructure application stack will consist of the following resources:
 | Networking inside cluster | Service Profile-site-service, ClusterIP | Ingress forwards requests to this IP address and used for load-balancing |
 | Storage (ephemeral) | Volume emptyDir called nginx-cache | /var/cache/nginx is mounted in container |
 
+## 6\. Terraform {#6.-terraform}
+
+You will realize that the K8s architecture required to run a fairly complex application stack can get unwieldy if manually configured on scale. Thus, we will automate our K8s infrastructure deployment using Terraform.
+
+### 6.1. Terraform Introduction {#6.1.-terraform-introduction}
+
+Terraform is an infrastructure-as-a-code tool created by HashiCorp which allows the definition of data center infrastructure in a human readable declarative configuration language known as HCL. With terraform, consistent workflow can be used to provision and manage infrastructure throughout its lifecycle. You can apply the same config multiple times and get the same result and manage infrastructure changes via Git. Terraform makes infrastructure deployments predictable, auditable and automated.
+
+Terraform creates and manages resources on cloud platforms and other services through their application programming interfaces. For example, it uses the K8s API to manage a K8s compliant cluster and the K8s resources can be declared in HCL like we will be doing in the final part of our project.
+
+### 6.2. Basic Terraform Concepts {#6.2.-basic-terraform-concepts}
+
+**Providers**  
+Are plugins distributed separately from Terraform that provide capabilities to interface with APIs of cloud platforms or services. Some popular ones are providers for [AWS](https://library.tf/providers/hashicorp/aws/latest), [GCP](https://library.tf/providers/hashicorp/aws/latest), [Azure](https://library.tf/providers/hashicorp/azurerm/latest) and ones we will be using - [Kubernetes](https://library.tf/providers/hashicorp/kubernetes/latest) and [Helm](https://library.tf/providers/hashicorp/helm/latest). There are also providers for utilities like [random number generation](https://library.tf/providers/hashicorp/random/latest), [file archive management](https://registry.terraform.io/providers/hashicorp/archive/latest/docs), [time management](https://registry.terraform.io/providers/hashicorp/time/latest/docs) etc. For browsing through the list of official providers and their documentation, visit the [Terraform Registry](https://registry.terraform.io/). Providers are declared in the required_providers block and installed when `terraform init` is run. Each resource type is implemented by a provider.
+
+**Resources**  
+Defined in resource blocks in the Terraform configuration, they are infrastructure objects representing virtual networks, compute instances of higher-level components like DNS records. A resource block declares a resource of a specific type and a specific local name which can be used to refer to the resource in the same module. A resource type specifies the type of infrastructure object it manages and the arguments and attributes the resource supports. To understand resources of a particular provider, refer to the Terraform Registry. When resource blocks are modified HCL files and `terraform plan` is run, Terraform will first calculate the differences in the current state to the desired state in the HCL files and apply the changes at the next `terraform apply`. For example, if a resource block is added, Terraform will provision the resource in the infrastructure and if a block is deleted, the corresponding provisioned resource will be deleted.
+
+**Data Sources**  
+Allow Terraform to use information defined outside of Terraform by another separate Terraform configuration, or modified by functions. They are read-only views to fetch or query things that already exist or are managed outside Terraform. In our first example, we use the Kubernetes Namespace to retrieve the UUID of the K8s cluster we installed and output it as a variable.
+
+**Modules**  
+Containers for multiple resources that are used together to fulfill a purpose like setting up a K8s cluster. A collection of .tf files make up a module and are kept together in a directory. Modules help organize reuse of Terraform code.
+
+**State**  
+Used to keep track of the current state of resources in the real-world to understand which changes are required to match the current state of deployed infrastructure with the desired state as per configuration files. It is recommended to store state in a remote shared backend and not in individual workstations to avoid drift and conflicts in between teams. We use Terraform.io to save the state file.
+
+**Variable**  
+Terraform has input and output variables. Input variables serve as parameters for a Terraform module which allows customizing behaviour. Output variables return values for a Terraform module.
+
+### 6.3. Terraform Creation of Workload {#6.3.-terraform-creation-of-workload}
+
+Providers we will be using and the resources they will create are as follows:
+
+1. [hashicorp/helm](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs) - Used to deploy software packages in K8s as described earlier. We will invoke Helm to install packages software (charts) inside the cluster. These are installed as K8s cluster add-ons. We deploy the following package resources using Helm:  
+   1. [helm_release.ngnix_ingress](https://github.com/kubernetes/ingress-nginx/tree/main/charts/ingress-nginx) - This creates a deployment, service, ConfigMap etc required to deploy the ingress controller, the NGINX reverse proxy that watches Ingress objects and routes external traffic into the cluster. It is exposed by the K3s LoadBalancer.  
+   2. [helm_release.cert_manager](https://cert-manager.io/docs/installation/helm/) - This uses the jetstak/cert-manager chart to crate deployments, webhooks and CRDs to install cert-manager which requests and renews TLS certificates by observing annotations on ingress or certificate resources.  Also CRDs required.  
+2. [hashicorp/kubernetes](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs) - Used to interact with resources supported by K8s. As part of our GitHub CI/CD pipeline we saved the k3s.yaml file which are credentials used to interact with our K8s cluster. When we apply changes as per our configuration file, these credentials are used to interact with the K8s API hosted by our cluster. From this provider, we deploy the following resources:  
+   1. [kubernetes_deployment.web_app](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/deployment) - It creates a K8s deployment in the default namespace that launches a single replica of the fareed83/profile-site image, with an emptyDir cache volume and strict pod security. As described earlier, deployments keep pods available and support roll-outs and rollbacks.  
+   2. [kubernetes_service.webservice](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/service) - It creates a K8s service of type ClusterIP that provides a stable virtual IP that load-balances traffic to pods. The ingress targets this service.  
+   3. [kubernetes_ingress_v1.web_ingress](https://registry.terraform.io/providers/hashicorp/kubernetes/2.19.0/docs/resources/ingress_v1) - Creates a single K8s ingress object that contains hostname, path rules and TLS settings that tells the controller installed by nginx_ingress how to route the profile website (fareed.digital) to profile-site-service and request a certificate from certificate-manager. It acts as the routing rule book.  
+3. [gavinbunney/kubectl](https://registry.terraform.io/providers/gavinbunney/kubectl/latest/docs) - This applies the clusterIssuer.yaml which contains the Let’s Encrypt configuration and is needed before the web ingress requests a certificate.  
+4. [hashicorp/time](https://registry.terraform.io/providers/hashicorp/time/latest/docs) - Used to sleep and ensure that CRDs are installed by Helm before the ClusterIssuer tries to issue a TLS certificate.
+
+### 6.4. Terraform Bootstrapping {#6.4.-terraform-bootstrapping}
+
+The following changes are required in the GitHub Actions workflow to execute the Terraform automation after the Ansible Playbook is run. We install Terraform and then init, plan and apply the configuration to our K8s cluster. Add the following to the GitHub Actions workflow under where we edit the k3s.config file. 
+
+     - name: Install Terraform  
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init  
+        working-directory: ./terraform  
+        run: terraform init
+
+      - name: Terraform Plan  
+        working-directory: ./terraform  
+        run: terraform plan  
+        
+      - name: Terraform Apply  
+        working-directory: ./terraform  
+        run: terraform apply -auto-approve
+
+For storing the state of our Terraform pipeline, we will use Terraform Cloud. Create an account on Terraform Cloud and make a new organization and create a project in the organization. Create a new CLI-driven workflow as we are using GitHub Actions to fully run our CI/CD pipeline. We will be running terraform init/plan/apply from GitHub Actions rather than from Terraform Cloud.
+
+Add the following to terraform/providers.tf to initialize the state store and providers.
+
+```
+terraform {  
+  cloud {  
+    hostname     = "app.terraform.io"  
+    organization = "<name of the organization created in terraform.io>"
+
+    workspaces {  
+      name = "<name of the workspace created in terraform.io>"  
+    }  
+  }
+
+  required_providers {  
+    kubernetes = {  
+      source  = "hashicorp/kubernetes"  
+      version = "~> 2.35"
+
+    }  
+    helm = {  
+      source  = "hashicorp/helm"  
+      version = "~> 2.17"  
+    }
+
+    kubectl = {  
+      source  = "gavinbunney/kubectl"  
+      version = ">= 1.19.0"  
+    }
+
+    time = {  
+      source  = "hashicorp/time"  
+      version = "~> 0.9"  
+    }
+
+  }  
+}
+```
+
+Add the required_providers section above to declare which providers your configuration depends upon and their download locations along with the version numbers that need to be enforced. When you run `terraform init` these providers will be downloaded and installed from the Terraform Registry.
+
+Go to Terraform Cloud settings and generate a Terraform team token. Do not commit this token in your code. Instead, store the token as a GitHub Actions secret named TERRAFORM_CLOUD_TOKEN. We will reference this token in our GitHub actions workflow YAML to insert it into the runner for Terraform to use as an environment variable called TF_TOKEN_app_terraform_io when initializing. 
+
+Add to env section of the Ansible Playbook: `TF_TOKEN_app_terraform_io: ${{ secrets.TERRAFORM_CLOUD_TOKEN }}`
+
+### 6.5. Basic Terraform Test {#6.5.-basic-terraform-test}
+
+Create a file called test_connection.tf with the following contents
+:
+```
+# 1) Tell Terraform how to find your K3s kubeconfig  
+#    Adjust the path to wherever you placed k3s.yaml after Ansible fetch.  
+provider "kubernetes" {  
+  config_path = "${path.module}/k3s.yaml"  
+}
+
+# 2) Use a data source to read the "kube-system" namespace  
+data "kubernetes_namespace" "kube_system" {  
+  metadata {  
+    name = "kube-system"  
+  }  
+}
+
+# 3) Output the namespace UID so we can confirm Terraform actually read it.  
+output "kube_system_uid" {  
+  value       = data.kubernetes_namespace.kube_system.metadata.0.uid  
+  description = "Unique ID of the kube-system namespace."  
+}
+```
+
+**Run Terraform From Local Machine**
+
+To run Terraform from the local machine, first export the following variables:  
+```
+export PI_SSH_PORT=”<Your Pi SSH port>”  
+export PI_HOST="<Your Pi Hostname>"  
+export PI_USER="<Your Pi Username>"  
+export TF_TOKEN_app_terraform_io="<Your Terraform Token>"  
+export KUBE_CONFIG_PATH=./k3s.yaml
+```
+
+Then run:
+
+`terraform init`
+
+`terraform plan`
+
+`terraform apply`
+
+Test out configuration so far locally. You should see the executed plan on Terraform Cloud. After this pipeline is applied successfully, Terraform Cloud will reflect the output and you can verify if the kube_system_uid is proper from Terraform Cloud running the below command:  
+`kubectl get namespace kube-system -o json`
+
+**Run Terraform With GitHub Actions**
+
+Since you have added the above commands to the GitHub Actions pipeline, they will be executed when you push your code to your GitHub repository.
+
+### 6.6. Completed IaC Pipeline {#6.6.-completed-iac-pipeline}
+
+Create a file called profile.tf and add the following:
+```
+variable "domain" {  
+  type    = string  
+  default = "fareed.digital"  
+}
+
+variable "profile_app_image" {  
+  type    = string  
+  default = "fareed83/profile-site:latest"  
+}
+
+# Deploy NGINX Ingress Controller  
+resource "helm_release" "nginx_ingress" {  
+  name             = "nginx-ingress"  
+  repository       = "https://kubernetes.github.io/ingress-nginx"  
+  chart            = "ingress-nginx"  
+  namespace        = "ingress-nginx"  
+  create_namespace = true
+
+  set {  
+    name  = "controller.service.type"  
+    value = "LoadBalancer"  
+  }
+
+  set {  
+    name  = "controller.ingressClassResource.default"  
+    value = "true"  
+  }  
+}
+
+resource "helm_release" "cert_manager" {  
+  name             = "cert-manager"  
+  repository       = "https://charts.jetstack.io"  
+  chart            = "cert-manager"  
+  namespace        = "cert-manager"  
+  create_namespace = true  
+  version          = "v1.17.2"
+
+  set {  
+    name  = "installCRDs"  
+    value = "true"  
+  }  
+}
+
+resource "time_sleep" "wait_for_cert_manager_crds" {  
+  depends_on      = [helm_release.cert_manager]  
+  create_duration = "30s"  
+}
+
+locals {  
+  clusterissuer = "clusterissuer.yaml"  
+}
+
+# Create clusterissuer for nginx YAML file  
+data "kubectl_file_documents" "clusterissuer" {  
+  content = file(local.clusterissuer)  
+}
+
+resource "kubectl_manifest" "clusterissuer" {  
+  for_each  = data.kubectl_file_documents.clusterissuer.manifests  
+  yaml_body = each.value  
+  depends_on = [  
+    data.kubectl_file_documents.clusterissuer,  
+    time_sleep.wait_for_cert_manager_crds // Wait until CRDs are established  
+  ]  
+}
+
+# Deploy the Web App (simplified, without read_only_root_filesystem)  
+resource "kubernetes_deployment" "web_app" {  
+  metadata {  
+    name      = "profile-site"  
+    namespace = "default"  
+    labels = {  
+      app = "profile-site"  
+    }  
+  }
+
+  spec {  
+    replicas = 1
+
+    selector {  
+      match_labels = {  
+        app = "profile-site"  
+      }  
+    }
+
+    template {  
+      metadata {  
+        labels = {  
+          app = "profile-site"  
+        }  
+      }
+
+      spec {  
+        # Declare the volume (emptyDir is writable by default)  
+        volume {  
+          name      = "nginx-cache"  
+          empty_dir {}  
+        }
+
+        # Set pod-level security with fsGroup so volumes are group-owned by 101.  
+        security_context {  
+          fs_group = 101  
+        }
+
+        container {  
+          name  = "profile-site"  
+          image = var.profile_app_image  
+          image_pull_policy = "Always"
+
+          # Mount the volume where Nginx can write caches/temp files.  
+          volume_mount {  
+            name       = "nginx-cache"  
+            mount_path = "/var/cache/nginx"  
+          }
+
+          port {  
+            container_port = 80  
+          }
+
+          resources {  
+            requests = {  
+              cpu    = "100m"  
+              memory = "256Mi"  
+            }  
+            limits = {  
+              cpu    = "200m"  
+              memory = "256Mi"  
+            }  
+          }
+
+          security_context {  
+            allow_privilege_escalation = false  
+            # Note: Removing read_only_root_filesystem ensures the container filesystem is writable.  
+            # Instead of making the entire filesystem read-only, we allow writes so that chown operations can succeed.  
+            capabilities {  
+              drop = ["ALL"]  
+              add  = ["CHOWN", "SETGID", "SETUID"]  
+            }  
+
+          }
+
+          liveness_probe {  
+            http_get {  
+              path = "/"  
+              port = 80  
+            }  
+            initial_delay_seconds = 5  
+            period_seconds        = 10  
+          }  
+        }  
+      }  
+    }  
+  }  
+}
+
+# Create a Service for the Web App  
+resource "kubernetes_service" "web_service" {  
+  metadata {  
+    name      = "profile-site-service"  
+    namespace = "default"  
+  }
+
+  spec {  
+    selector = {  
+      app = kubernetes_deployment.web_app.metadata[0].labels.app  
+    }
+
+    port {  
+      protocol    = "TCP"  
+      port        = 80  
+      target_port = 80  
+    }
+
+    type = "ClusterIP"  
+  }  
+}
+
+# Ingress Resource for HTTPS with Redirect  
+resource "kubernetes_ingress_v1" "web_ingress" {  
+  depends_on = [  
+    helm_release.nginx_ingress,  
+    helm_release.cert_manager,  
+    # kubernetes_manifest.letsencrypt_issuer  
+    kubectl_manifest.clusterissuer  
+  ]
+
+  metadata {  
+    name      = "profile-site-ingress"  
+    namespace = "default"  
+    annotations = {  
+      "cert-manager.io/cluster-issuer"                 = "letsencrypt-prod"  
+      "nginx.ingress.kubernetes.io/force-ssl-redirect" = "true"  
+    }  
+  }
+
+  spec {  
+    rule {  
+      host = var.domain  
+      http {  
+        path {  
+          path      = "/"  
+          path_type = "Prefix"  
+          backend {  
+            service {  
+              name = kubernetes_service.web_service.metadata[0].name  
+              port {  
+                number = 80  
+              }  
+            }  
+          }  
+        }  
+      }  
+    }
+
+    tls {  
+      secret_name = "profile-site-tls"  
+      hosts       = [var.domain]  
+    }  
+  }  
+}
+```
+
+Following is the explanation of the above Terraform configuration:
+
+1. Helm installs controllers  
+   1. Ingress-NGINX is installed, exposing a LoadBalancer service  
+   2. cert-manager deploys webhooks and registers CRDs  
+2. Sleep 30s to make sure CRDs are ready before proceeding  
+3. ClusterIssuer is applied and cert-manager can now issue certificates using Let’s Encrypt  
+4. App deployment and the service which creates the running pods and an endpoint that is internal to the cluster.  
+5. Ingress is then configured which does the following:  
+   1. NGINX controller detects the new ingress, configures a virtual host for fareed.digital and proxies traffic to profile-site-service.  
+   2. cert-manager’s ingress-shim detects the cert-manager.io/cluster-issuer annotation, performs the ACME HTTP-01 challenge through NGINX, and stores the resulting certificate in profile-site-tls.  
+   3. On certificate renewal, the same flow repeats automatically.  
+6. Terraform state records every object so the next plan will only show the drift or changes required to match the desired state.
+
+## 7\. Final Thoughts {#7.-final-thoughts}
+
+That was quite a handful\! I hope this helped you understand the complexity and nuances of modern CI/CD and IaC workflows. I will continue to update this article as I get more insights and clarity on how the setup operates and evolve this already-endless article. So, check back again.
 
 # [< Back to Fareed R](./index.md)
