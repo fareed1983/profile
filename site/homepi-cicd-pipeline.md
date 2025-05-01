@@ -180,10 +180,8 @@ We will create an IaC solution that uses declarative language to create a base f
 
 The repositories of the source code for this tutorial are at:
 
-* [https://github.com/fareed1983/homepi](https://github.com/fareed1983/homepi) - The core Raspberry Pi IaC.  
+* [https://github.com/fareed1983/homepi-public](https://github.com/fareed1983/homepi-public) - The core Raspberry Pi IaC.  
 * [https://github.com/fareed1983/profile](https://github.com/fareed1983/profile) - The profile website with a CI/CD workflow.
-
-You are encouraged to note the commit history as I started as a noob and you can follow how my understanding grew as I progressed.
 
 ## 2\. Preparing the Pi {#2.-preparing-the-pi}
 
@@ -1235,7 +1233,32 @@ resource "kubernetes_ingress_v1" "web_ingress" {
 }
 ```
 
-Following is the explanation of the above Terraform configuration:
+
+In addition, the below file (clusterissuer.yaml) is required for configuring the certificate issuer that allows communication with the Let’s Encrypt production ACME endpoint. It is used to register an ACME account and store the account key in a K8s secret called letsencrypt. It solves HTTP-01 challenges through NGINX ingress controller to install the certificate.
+
+```
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ your email address }}
+    privateKeySecretRef:
+      name: letsencrypt
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+          podTemplate:
+            spec:
+              nodeSelector:
+                "kubernetes.io/os": linux
+```
+
+
+Following is the explanation of the Terraform configuration:
 
 1. Helm installs controllers  
    1. Ingress-NGINX is installed, exposing a LoadBalancer service  
