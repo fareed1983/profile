@@ -14,4 +14,4 @@ I was made a manager and soon found myself not sufficiently hands-on as to satis
 
 ### 📄 [How This Website Came Into Existence - CI/CD and IaC on a Raspberry Pi](./homepi-cicd-pipeline.md "CI/CD pipeline exploration for Pi 5 server")
 
-Grasp basic DevOps, IaC and CI/CD concepts with this tutorial. I was a complete novice in tools like Ansible, Terraform, Kubernetes and Github Actions. I believe this is a solid starting point that should clear some concepts about mordern infrastructure automation practices.
+Grasp basic DevOps, IaC and CI/CD concepts with this tutorial. I was a novice in tools like Ansible, Terraform, Kubernetes and Github Actions before embarking on the project documented here. I believe this is a solid starting point that should clear many concepts about modern infrastructure automation practices.

@@ -1233,7 +1233,6 @@ resource "kubernetes_ingress_v1" "web_ingress" {
 }
 ```
 
-
 In addition, the below file (clusterissuer.yaml) is required for configuring the certificate issuer that allows communication with the Let’s Encrypt production ACME endpoint. It is used to register an ACME account and store the account key in a K8s secret called letsencrypt. It solves HTTP-01 challenges through NGINX ingress controller to install the certificate.
 
 ```
