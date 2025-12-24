@@ -6,12 +6,13 @@ Then I forgot that I am a coder and lived my teenage years exploring the world u
 
 I was made a manager and soon found myself not sufficiently hands-on as to satisfy my technical curiosity. There were some experements I conducted recently and continue to perform to fill some gaps in my knowledge and this will be the place where some of these excursions will be documented. I hope this humble website inspires and illuminates the visitor.
 
-[<img src="images/linkedin-logo.svg" alt="drawing" width="25" />](https://www.linkedin.com/in/fareedr/)
+[<img src="images/linkedin-logo.svg" alt="drawing" width="25" />](https://www.linkedin.com/in/fareedr/)  [<img src="images/github-mark.svg" alt="drawing" width="25" />](https://github.com/fareed1983)
 
 ---
 
-## 🚀 Some Articles to Kick Off This Website
+## Some Articles to Kick Off This Website
 
-### 📄 [How This Website Came Into Existence - CI/CD and IaC on a Raspberry Pi](./homepi-cicd-pipeline.md "CI/CD pipeline exploration for Pi 5 server")
+### [How This Website Came Into Existence - CI/CD and IaC on a Raspberry Pi](./homepi-cicd-pipeline.md "CI/CD pipeline exploration for Pi 5 server")
 
 Grasp basic DevOps, IaC and CI/CD concepts with this tutorial. I was a novice in tools like Ansible, Terraform, Kubernetes and Github Actions before embarking on the project documented here. I believe this is a solid starting point that should clear many concepts about modern infrastructure automation practices.
+
