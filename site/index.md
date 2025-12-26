@@ -10,14 +10,14 @@ I was made a manager and soon found myself not sufficiently hands-on as to satis
 
 ---
 
-## Outcomes of Curiosity
+# Outcomes of Curiosity
 
 ### [How This Website Came Into Existence - CI/CD and IaC on a Raspberry Pi](./homepi-cicd-pipeline.md "CI/CD pipeline exploration for Pi 5 server")
 
 Grasp basic DevOps, IaC and CI/CD concepts with this tutorial. I was a novice in tools like Ansible, Terraform, Kubernetes and Github Actions before embarking on the project documented here. I believe this is a solid starting point that should clear many concepts about modern infrastructure automation practices.
 
-<br>
+---
 
 ### [Starting a FPGA Journey - From Zero to Calculator](./fpga-zero-to-calculator.md "Scratch the surface of field-programmable gate arrays")
 
-I found someone selling a Altera DE1 for A$35 and I had to take it home. From not knowing what do do with it to getting a very basic calculator working, join me on this facinating journey towards custom special-puropose logic machines.
+I found someone selling an Altera DE1 for A$35 and I had to take it home. From staring at it not knowing what to do the strange contraption, to getting a very basic calculator working, join me on this facinating journey towards custom special-puropose logic machines.
