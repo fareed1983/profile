@@ -308,11 +308,81 @@ module rig
 endmodule
 ```
 
-## Project 8 - 10-Bit Decimal Display
+## Project 8 - [10-Bit Decimal Display](https://github.com/fareed1983/fpga-zero-to-calculator/tree/main/08-10-bit-decimal-display)
 
-## Project 9 - Blink LED
+Wieh my new-found knowledge of 2-s compliment numbers and decimal displays, I decided to make a 10-bit calculator with the 10th bit representing the sign. Thus I had to increase the double-dabble top-level module created above to 9-bits. This modification provided me an opportunity to grasp the double-dabble method more firmly. I also created the reverse of the double-dabble to convert the BCD representation generated after double-dabbling back into binary and displaying it on the red LEDs (LEDR[0]-LEDR[8]). Note that this does not handle 2-s compliement and that will be added in the actual calculator project.
+
+In this listing, I have added a conditional subtractor [cond_sub.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/08-10-bit-decimal-display/cond_sub.v) which is just an inverse of the conditional adder mentioned earlier. Most of the other listing is the same except the addition of circuitry for one more bit.
+
+```
+	wire[3:0] so_a, so_b, so_c, so_d, so_e, so_f, so_g, so_h, so_i;
+
+	assign LEDR[0] = bcd1s[0];
+	cond_sub cs_i (.i({bcd10s[0], bcd1s[3:1]}), .o(so_i));
+	cond_sub cs_h (.i({bcd100s[0], bcd10s[3:1]}), .o(so_h));
+	assign LEDR[1] = so_i[0];
+	cond_sub cs_g (.i({so_h[0], so_i[3:1]}), .o(so_g));
+	assign LEDR[2] = so_g[0];
+	cond_sub cs_f (.i({bcd100s[1], so_h[3:1]}), .o(so_f));
+	cond_sub cs_e (.i({so_f[0], so_g[3:1]}), .o(so_e));
+	assign LEDR[3] = so_e[0];
+	cond_sub cs_d (.i({bcd100s[2], so_f[3:1]}), .o(so_d));
+	cond_sub cs_c (.i({so_d[0], so_e[3:1]}), .o(so_c));
+	assign LEDR[4] = so_c[0];
+	cond_sub cs_b (.i({so_d[1], so_c[3:1]}), .o(so_b));
+	assign LEDR[5] = so_b[0];
+	cond_sub cs_a (.i({so_d[2], so_b[3:1]}), .o(so_a));
+	assign LEDR[8:6] = {so_a[2:0]};
+```
+
+I made the below rough sheet to aid in coding for the 10-bit double-dabble and it's inverse.
+![10-bit Double Dabble and Inverse](./images/08-decimal-display.jpg)
+
+## Project 9 - [Blink LED](https://github.com/fareed1983/fpga-zero-to-calculator/tree/main/09-blink)
+
+It was time to try my hand on a bit of sequential logic. The easiest example I found to run was a simple LED blinker. This 'Hello World!' of a sequential logic FPGA circuit gave me enough of a start to attempt the calculator next. The file [blink.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/09-blink/blink.v) is listed below.
+
+```
+module rig (
+		input  wire CLOCK_50,
+		output wire [0:1] LEDR
+	);
+
+    blink b0 (
+        .clk (CLOCK_50),
+        .led (LEDR[0])
+    );
+
+	 assign LEDR[1] = CLOCK_50;
+
+endmodule
+
+module blink(
+		input wire clk,
+		output reg led
+	);
+	
+	reg [31:0] count = 0;
+	
+	always @(posedge clk) begin
+	
+		if (count == 32'd49_999_999) begin
+			count <= 0;
+			led <= ~led;
+		end else begin
+			count <= count +1;
+		end
+		
+	end
+	
+endmodule
+```
+
+Here we use the 50MHz clock of the DE1 as an input and the always block is set to trigger at the positive-edge of the clock and it will only trigger once on each positive-edge. We are counting to 50 million and inverting the current state of the LED. Note that Verilog HDL will compile the addition operation into an adder.
 
 ## Project 10 - Calculator
 
+
+ and encapsulate into a reusable module
 
 # [< Back to Fareed R](./index.md)
