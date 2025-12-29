@@ -204,7 +204,7 @@ Wikipedia provides the following diagram:
 
 ![](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Mux_from_3_state_buffers.png/250px-Mux_from_3_state_buffers.png)
 
-Quartus synthesises an equavalent shown below:
+Quartus synthesises an equavalent circuit shown below:
 
 ![](./images/06-multiplexer.png)
 
@@ -245,9 +245,12 @@ module bin2ssd #(
 endmodule
 ```
 
-As you see, it is simple code that turns on certain segments given certain hex values provided in 4 bits. The parameter INVERT is used to initialize the module specifying that the segements are on when the HEX[6:0] are set low. Thus we negate the values before assigning them to the output in our case. Although the calculator is not to feature a hex display, hex digits were added for completion.
+As you see, it is simple code that turns on certain segments given certain hex values provided in 4 bits. The parameter INVERT is used to initialize the module specifying that the segements are on when the HEX[6:0] are set low. Thus I negate the values before assigning them to the output in our case. Although the calculator is not to feature a hex display, hex digits were added for completion.
 
-Double dabble - I always knew BCD (binary-coded decimal) representation of binary numbers existed but I never knew what it is used for. While faced with the challenge of displaying decimal numbers, I understood the significance of this method. I came across the most amazing high-quality explanation of the double-dabble technique made by [Sebastian Lague](https://www.youtube.com/@SebastianLague). I highly recommend watching it entirely. Coming from a programming background, it was facinating to learn how complex combinational logic circuits can be created for purposes that we assume can only be done with sequential logic. I use parts of the methods demonstrated in the video even further in the calculator project.
+Double dabble - I always knew BCD (binary-coded decimal) representation of binary numbers existed but I never knew what it is used for. While faced with the challenge of displaying decimal numbers, I understood the significance of this method. I came across the most amazing high-quality explanation of the double-dabble technique made by [Sebastian Lague](https://www.youtube.com/@SebastianLague). I highly recommend watching it entirely. You should also check out his brilliant [Digital Logic Sim Project
+](https://sebastian.itch.io/digital-logic-sim).
+
+Coming from a programming background, it was facinating to learn how complex combinational logic circuits can be created for purposes that I assumed can only be done with sequential logic. I use parts of the methods demonstrated in the video even further in the calculator project.
 
 
 <iframe width="420" height="315"
@@ -336,6 +339,7 @@ In this listing, I have added a conditional subtractor [cond_sub.v](https://gith
 ```
 
 I made the below rough sheet to aid in coding for the 10-bit double-dabble and it's inverse.
+
 ![10-bit Double Dabble and Inverse](./images/08-decimal-display.jpg)
 
 ## Project 9 - [Blink LED](https://github.com/fareed1983/fpga-zero-to-calculator/tree/main/09-blink)
@@ -378,11 +382,213 @@ module blink(
 endmodule
 ```
 
-Here we use the 50MHz clock of the DE1 as an input and the always block is set to trigger at the positive-edge of the clock and it will only trigger once on each positive-edge. We are counting to 50 million and inverting the current state of the LED. Note that Verilog HDL will compile the addition operation into an adder.
+Here I use the 50MHz clock of the DE1 as an input and the always block is set to trigger at the positive-edge of the clock and it will only trigger once on each positive-edge. I am counting to 50 million and inverting the current state of the LED. Note that Verilog HDL will compile the addition operation into an adder.
 
-## Project 10 - Calculator
+## Project 10 - [Calculator]()
+
+With the fundamentals in place, I was now ready to put it all to practice with the calculator. Was I in for a surprise! It turned out to be one of the most interesting project I implemented.
 
 
- and encapsulate into a reusable module
+### Keypad
+I started with trying to get a 4x4 keypad grid to work. I attached the keypad below to GPIOs on the board.
+
+![4x5 Mebrane Keypad](./images/10-calculator-membrane-kepyad.jpg)
+
+After various failed attempts and much debugging with a multimeter, I got the keypad partially working. I realized that it was required to explicitly specify the pin nodes to have a weak pull-up resistor to avoid them to be in a floating state. This is done through the Pin Editor utility of Quartas as below:
+
+![Quartas Pin Planner](./images/10-quratas-pin-planner.png)
+
+The module in [keypad.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/10-calculator/keypad.v) takes an input of columns to sense keys while sets rows as otuput. It also outputs 'pressed' which goes low when a key is released and it triggers 'released' for one clock cycle. The digits that were detected are output as BCD and 4 opers can be output based on the key that was pressed. The listing of keypad.v is as follows:
+```
+module keypad
+	(
+		input wire clk,
+		output reg[3:0] rows, 
+		input wire[3:0] cols,
+		output reg pressed,
+		output reg released,
+		output reg[3:0] digits,
+		output reg[3:0] opers
+	);
+	
+	reg[1:0] state = 0;
+	reg[31:0] count = 0;	
+	reg[2:0] scan_row = 0;
+	reg[0:0] detected = 0;
+	
+	initial begin	
+		pressed <= 0;
+		released <= 0;
+		digits <= 0;
+		opers <= 0;
+		state <= 0;
+		count <= 0;
+		detected <= 0;
+	end
+	
+	always @(posedge clk) begin
+	
+		if (count == 0) begin							
+			count <= 32'd49_999;				// Sample at 1Khz
+			case (state)
+
+				
+				0: begin
+					if (scan_row == 4) begin
+						state <= 2;
+						scan_row <= 0;
+					end else begin 
+						state <= 1;
+						released <= 0;
+						case (scan_row)
+							0: rows <= 4'b1110;
+							1: rows <= 4'b1101;
+							2: rows <= 4'b1011;
+							3: rows <= 4'b0111;
+							default: rows <= 4'b1111;
+						endcase
+					end
+					
+					count <= 0;
+				end
+				
+				1: begin
+
+					scan_row <= scan_row + 1;
+					state <= 0;
+					
+					case (scan_row)
+						0: begin
+							if (~cols[0]) begin digits <= 4'd1; detected <= 1; end
+							else if (~cols[1]) begin digits <= 4'd2; detected <= 1; end
+							else if (~cols[2]) begin digits <= 4'd3; detected <= 1; end
+							else if (~cols[3]) begin opers <= 3'd1; detected <= 1; end
+						end
+				
+						1: begin
+							if (~cols[0]) begin digits <= 4'd4; detected <= 1; end
+							else if (~cols[1]) begin digits <= 4'd5; detected <= 1; end
+							else if (~cols[2]) begin digits <= 4'd6; detected <= 1; end
+							else if (~cols[3]) begin opers <= 3'd2; detected <= 1; end
+						end
+							
+						2: begin
+							if (~cols[0]) begin digits <= 4'd7; detected <= 1; end
+							else if (~cols[1]) begin digits <= 4'd8; detected <= 1; end
+							else if (~cols[2]) begin digits <= 4'd9; detected <= 1; end
+							else if (~cols[3]) begin opers <= 3'd3; detected <= 1; end
+						end
+						
+						3: begin
+							if (~cols[1]) begin digits <= 4'd0; detected <= 1; end
+							else if (~cols[3]) begin opers <= 3'd4; detected <= 1; end
+							else if (~cols[0]) begin opers <= 3'd5; detected <= 1; end
+							else if (~cols[2]) begin opers <= 3'd6; detected <= 1; end
+						end
+						
+					endcase
+					
+				end
+				
+				2: begin
+					
+					if (detected) begin 
+						pressed <= 1;
+						detected <= 0;
+						state <= 0;
+					end else begin
+						if (pressed) begin
+							released <= 1;
+							state <= 3;
+							pressed <= 0;
+						end else state <= 0;
+					end
+					
+					count <= 0;
+				end
+				
+				3: begin
+					released <= 0;
+					digits <= 0;
+					opers <= 0;
+					state <= 0;
+					count <= 0;
+				end
+				
+			endcase
+			
+		end else begin
+			count <= count - 1;
+		end
+
+	end
+	
+		
+endmodule
+```
+
+As you can see, I had to ultimately implement it as a state machine with the following states:
+* **Initial block:** This sets the initial values to the logic registers/wires.
+* **count == 0:** There is a counter to allow for sampling at 1KHz.
+* **State 0:** We return to this state from state 1 and the start to set the rows register.
+	* *scan_row != 4 / Next:* We set the rows output to the keypad to select a row to scan for columns and set state to 1. In the next clock tick, the state 1 block will become active.
+	* *scan_row == 4 / BreakOut:* When the four rows have been scanned scan_row is reset and we move to state 2.
+* **State 1 / ScanningIteration**: Here if a column is detected for a given scan_row, we set the digits or opers output and detected is set to high.
+* **State 2 / Evaluating:** After 4 ScanningIterations, state 0 BreaksOut to this state.
+  * If a key was detected ressed is set to high and detected is set to low. We move back to state 0.
+  * If no key was detected,
+    * If a key was pressed ealier (pressed was high), we trigger released to high for one cycle only as it gets reset in state 3 which we also set. We unset pressed and finally we set to count to 0 to go into state 3 immediately at the next cycle so that reset can be triggered.
+* **State 3 / Reset**: We reset released, digits, opers, state and count.
+
+Impressively, Quartas sees the state machine and shows this diagram in the state machine viewer:
+
+![Keypad States](./images/10-calculator-keypad-state.png)
+
+### Push-button
+
+This is a simpler module than keypad with a small state-machine used to debounce inputs from 4 keys on the DE1. The module [pushbtn.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/10-calculator/pushbtn.v) takes the clock and button to debounce as inputs and triggers 'pressed' and 'released' for one clock cycle. It does so by counting 7 continuous and consistent presses or releases.
+
+### BCD Array to Binary
+
+In [dec2bin.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/10-calculator/dec2bin.sv), the BCD values of each decimal place digit is converted into it's binary form using this module. This happens continously. Note that there is an input for negative here which when high, produces a 2-s compliment binary number of the BCD digits. The rest of the listing is the same reverse double-dabble as discussed in project 9 encapsulated as a reusable module. Note that I use SystemVerilog HDL here to make 2-dimensional array handling easier.
+
+### Binary to BCD Array
+
+The [bin2dec.sv](ttps://github.com/fareed1983/fpga-zero-to-calculator/blob/main/10-calculator/bin2dec.sv) module is used to convert the outcome of a calculation to decimal numbers to display on the seven-segment display at the instant of evaluation. If the number represented by the 2-s compliment binary input is a negative number, we invert the number and add 1 using combinational logic. We don't output if the input binary number is negative because if it is, it is easy to find that from the most-significant binary digit. The other parts are similar to the double-dabble as discussed in projects 8 and 9.
+
+### Binary to SSD
+
+The file [bin2ssd.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/10-calculator/bin2ssd.v) is modified substiantially from the binary to SSD module used in earlier project. I have added comments to each of the input and output wires listed below:
+```
+		input wire[3:0] b, // bcd in
+		input wire bi, // ripple blanking
+		output wire[6:0] s, // ssd
+		output wire bo, // ripple blanking output
+		input wire mi, // display minus
+		input wire rz, // if right digit is zero, don't display minus here
+		output wire zo, // is this digit zero? (used by left digit)
+		output wire mo // ripple minus if not consumed to avoid negative sign instead of 0 in middle of number
+```
+
+Here I use the ripple blanking concept described in [Sebastian Lague's](https://www.youtube.com/@SebastianLague) video posted above. I add another semi-ripple minus segment that is displayed on the next left digit's g-segment.
+
+
+## Tying it All Together - The FPGA Calculator
+
+It is best to describe the [calculator.sv](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/10-calculator/calculator.sv) block-by-block.
+
+```
+module calculator
+	(
+		output wire[3:0] ROWS,
+		input wire[3:0] COLS,
+		output wire[9:0] LEDR,
+		output wire[7:0] LEDG,
+		output wire[6:0] HEX0, HEX1, HEX2, HEX3,
+		input wire[3:0] KEY,
+		input wire CLOCK_50
+	);
+```
+
 
 # [< Back to Fareed R](./index.md)
