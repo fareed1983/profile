@@ -113,7 +113,7 @@ The above synthezises into a circuit resembling the diagram below from Wikipedia
 The following video from Ben Eater provides an excellent explanation of how this works:
 
 <iframe width="420" height="315"
-src="https://www.youtube.com/watch?v=wvJc9CZcvBc">
+src="https://www.youtube.com/embed/wvJc9CZcvBc">
 </iframe>
 
 
@@ -251,7 +251,7 @@ Double dabble - I always knew BCD (binary-coded decimal) representation of binar
 
 
 <iframe width="420" height="315"
-src="https://www.youtube.com/watch?v=hEDQpqhY2MA&t=1836s">
+src="https://www.youtube.com/embed/hEDQpqhY2MA&t=1836s">
 </iframe>
 
 
