@@ -152,7 +152,7 @@ The first full-adder module is initialized with the sub(tract) input and the inp
 
 After somewhat nailing the ALU, I moved on to trying to make a latch but no matter what I did, I could not get it to work at the 'gate-level' on the FPGA.  When Quartus detects a combinational feedback loop as in the case of a latch, it complains. It is important to understand that FPGAs are composed of cells that contain configurable look-up tables (LUTs). While these can be configured to contain feedback, they are discouraged and there are specific ways to implement them to work correctly but result in overly complex designs.
 
-The following listing correctly defines a R-S latch which does not work. You will find it in the commit history of The file [rs.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/05-rs-latch-impossible/rs.v}.
+The following listing correctly defines a R-S latch which does not work. You will find it in the commit history of The file [rs.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/05-rs-latch-impossible/rs.v).
 
 ```
 module rs
@@ -528,6 +528,7 @@ endmodule
 ```
 
 As you can see, I had to ultimately implement it as a state machine with the following states:
+
 * **Initial block:** This sets the initial values to the logic registers/wires.
 * **count == 0:** There is a counter to allow for sampling at 1KHz.
 * **State 0:** We return to this state from state 1 and the start to set the rows register.
