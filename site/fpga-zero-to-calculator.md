@@ -9,8 +9,7 @@ I have been curious about digital electronics for a long time and have attempted
 
 I knew something called FPGAs and CPLDs existed since working on an advanced DVB settop box around 2005 where it was innovatively used to communicate between two processors. However, I was never truly curious about it thinking that it was part of some dark art that needed brilliant brains to comprehend. Until, a few months ago (November 2025), by chance, I stumbled upon the most beautiful looking educational board on FB Marketplace called "[Altera DE1](https://www.terasic.com.tw/cgi-bin/page/archive.pl?No=83)" which the owner parted with for A$35.
 
-![image](https://www.terasic.com.tw/attachment/archive/83/image/image_39_thumb.jpg)<br>
-*The Altera DE1*
+![The Altera DE1](https://www.terasic.com.tw/attachment/archive/83/image/image_39_thumb.jpg)<br>
 
 When I switched it on, it ran the factory demo with running lights and cyclic hex numbers on the seven-segment displays. After researching a little, I realized that it was a phased-out board but had immense educational value with the ability to host a RISC soft-core processor called [Nios II](https://en.wikipedia.org/wiki/Nios_II). The amount of 'hardware' that could be crammed into this board opened a plethora of possibilities in my mind. It was a mysterious concoction that sparked immense cuirosity and triggered quite a compulsion to get something useful working on the board.
 
@@ -34,11 +33,11 @@ The first 'program' I tried was an example provided in [Embedded SoPC Design wit
 
 The file [list_ch03_01_eq1.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/00-comparator/list_ch03_01_eq1.v) implements a gate-level 1-bit comparator. When compiled, Quartus II compiles the project performing elaboration, systhesis, placement and routing into the FPGA ultimately mimicing how such a circuit would be created using logic-gates. The following 'netlist' is synthesized from the code.
 
-![image](./images/00-2-bit-comparator-circuit-netlist-a.png)
+![](./images/00-2-bit-comparator-circuit-netlist-a.png)
 
 The diagram is produced by the Quartus II Netlist Viewer and shows the 2-bit comparator composed of 2 units of 1-bit comparitors. The inputs of the comparators are SW0 to SW3. These keys are mapped using the eq2.pin.csv file. The output of the comparators is then ANDed to give the result which is connected to LED0. Zoomming into one of the 1-bit comparators, we see the following gate-level diagram.
 
-![image](./images/00-2-bit-comparator-circuit-netlist-b.png)
+![](./images/00-2-bit-comparator-circuit-netlist-b.png)
 
 The diagram shows a very basic 1-bit comparator and is quite self-explanatory.One point to note is that the 'code' in a HDL here is combinatorial logic and produces a circuit all-at-once unlike instructions provided to a microprocessor. We are building custom special-purpose machines rather than programming a general-purpose computer.
 
@@ -75,6 +74,7 @@ The other file [tst.v](https://github.com/fareed1983/fpga-zero-to-calculator/blo
 ## Project 2 - [2-Bit Full Adder](https://github.com/fareed1983/fpga-zero-to-calculator/tree/main/02-full-adder)
 
 Next, I implemented a full-adder with the following truth table:
+
 |a|b|carry_in|sum|carry_out|
 |-|-|-|-|-|
 |0|0|0|0|0|
@@ -108,7 +108,7 @@ endmodule
 
 The above synthezises into a circuit resembling the diagram below from Wikipedia except that the first block is a half-adder as there is no requirement for a carry-in.
 
-![image](https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/4-bit_ripple_carry_adder.svg/500px-4-bit_ripple_carry_adder.svg.png)
+![Wikipedia: 4-bit ripple carry adder](https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/4-bit_ripple_carry_adder.svg/500px-4-bit_ripple_carry_adder.svg.png)
 
 The following video from Ben Eater provides an excellent explanation of how this works:
 
@@ -202,11 +202,11 @@ The file [mux4x1.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/m
 
 Wikipedia provides the following diagram:
 
-![image](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Mux_from_3_state_buffers.png/250px-Mux_from_3_state_buffers.png)
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/Mux_from_3_state_buffers.png/250px-Mux_from_3_state_buffers.png)
 
 Quartus synthesises an equavalent shown below:
 
-![image](./images/06-multiplexer.png)
+![](./images/06-multiplexer.png)
 
 Although a multiplexer is not used in the calculator, the thought of making a calculator occured to me at this point in the journey. I decided to make a calculator first and not a full-fledged general-purpose computer because for the computer, instructions were redily available.
 
@@ -251,10 +251,62 @@ Double dabble - I always knew BCD (binary-coded decimal) representation of binar
 
 
 <iframe width="420" height="315"
-src="https://www.youtube.com/embed/hEDQpqhY2MA&t=1836s">
+src="https://www.youtube.com/embed/hEDQpqhY2MA">
 </iframe>
 
-
+The file [dabble.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/07-decimal-display/dabble.v) defines the conditionl adder module as described in the video. The top-level module in [rig.v](https://github.com/fareed1983/fpga-zero-to-calculator/blob/main/07-decimal-display/rig.v) implements the double-dabble technique with the same naming conventions as Sebastian's so it should be self-explanatory when read after watching the video. The listing is below:
+```
+module rig 
+	(
+		input wire[7:0] SW,
+		input wire[2:0] KEY,
+		output wire[6:0] HEX0, HEX1, HEX2, HEX3,
+		output wire[9:0] LEDR,
+		output wire[3:0] LEDG
+	);
+	
+	wire[3:0] doT, doU, doV, doW, doX, doY, doZ;
+	
+	dabble dT (.i(SW[7:5]), .o(doT));
+	dabble dU (.i({doT[2:0], SW[4]}), .o(doU));
+	dabble dV (.i({doU[2:0], SW[3]}), .o(doV));
+	
+	dabble dW (.i({doT[3], doU[3], doV[3]}), .o(doW));
+	dabble dX (.i({doV[2:0], SW[2]}), .o(doX));
+	
+	dabble dY (.i({doW[2:0], doX[3]}), .o(doY));
+	dabble dZ (.i({doX[2:0], SW[1]}), .o(doZ));
+	
+	assign LEDR[0] = SW[0];
+	assign LEDR[4:1] = doZ[3:0];
+	assign LEDR[8:5] = doY[3:0];
+	assign LEDR[9] = doW[3];
+	
+	wire[2:0] k = ~KEY;
+	
+	assign LEDG =	(k == 3'h1) ? doT :
+						(k == 3'h2) ? doU :
+						(k == 3'h3) ? doV :
+						(k == 3'h4) ? doW :
+						(k == 3'h5) ? doX :
+						(k == 3'h6) ? doY :
+						(k == 3'h7) ? doZ :
+										  3'h0;
+											 
+	wire[0:3] bcd1s, bcd10s, bcd100s;
+	
+	assign bcd1s = {doZ[2:0], SW[0]};
+	assign bcd10s = {doY[2:0], doZ[3]};
+	assign bcd100s = {doW[3], doY[3]};
+	
+	bin2ssd #(.INVERT(1)) bs0 (.b(bcd1s), .s(HEX0));
+	bin2ssd #(.INVERT(1)) bs1 (.b(bcd10s), .s(HEX1));
+	bin2ssd #(.INVERT(1)) bs2 (.b(bcd100s), .s(HEX2));
+	
+	assign HEX3 = 7'b1111111;
+	
+endmodule
+```
 
 ## Project 8 - 10-Bit Decimal Display
 
