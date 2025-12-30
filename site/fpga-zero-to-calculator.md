@@ -39,7 +39,7 @@ The diagram is produced by the Quartus II Netlist Viewer and shows the 2-bit com
 
 ![](./images/00-2-bit-comparator-circuit-netlist-b.png)
 
-The diagram shows a very basic 1-bit comparator and is quite self-explanatory.One point to note is that the 'code' in a HDL here is combinatorial logic and produces a circuit all-at-once unlike instructions provided to a microprocessor. We are building custom special-purpose machines rather than programming a general-purpose computer.
+The diagram above zooms into one of the coparitor blocks in green in the first diagram. It shows a very basic 1-bit comparator and is quite self-explanatory. One point to note is that the 'code' in a HDL here is combinatorial logic and produces a circuit all-at-once unlike instructions provided to a microprocessor. We are building custom special-purpose machines rather than programming a general-purpose computer.
 
 
 ## Project 1: [2-Bit Half Adder](https://github.com/fareed1983/fpga-zero-to-calculator/tree/main/01-half-adder)
@@ -61,7 +61,8 @@ module ha
 	
 endmodule
 ```
-The above synthesizes to the half-adder circuit with the following truth-table:
+
+The above describes a half-adder module with inputs, a & b and outputs c & s. The assign statements lead to LUTs on the FPGA being configured to mimic gates. It synthesizes a combinational half-adder circuit with the following truth-table:
 
 |a|b|sum|carry|
 |-|-|-|-|
